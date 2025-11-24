@@ -100,22 +100,30 @@
                 <div
                   v-for="cancion in cancionesPlaylist"
                   :key="cancion.id"
-                  class="list-group-item bg-transparent text-white d-flex align-items-center gap-3"
+                  class="list-group-item bg-transparent text-white d-flex flex-column gap-3"
                 >
-                  <img :src="cancion.portada" alt="" class="cover rounded" />
-                  <div class="flex-grow-1">
-                    <h3 class="h6 mb-1">{{ cancion.titulo }}</h3>
-                    <p class="mb-0 text-white-50">
-                      {{ cancion.artista }} • {{ cancion.album }} • {{ cancion.genero }}
-                    </p>
+                  <div class="d-flex align-items-center gap-3">
+                    <img :src="cancion.portada" alt="" class="cover rounded" />
+                    <div class="flex-grow-1">
+                      <h3 class="h6 mb-1">{{ cancion.titulo }}</h3>
+                      <p class="mb-0 text-white-50">
+                        {{ cancion.artista }} • {{ cancion.album }} • {{ cancion.genero }}
+                      </p>
+                    </div>
+                    <button
+                      class="btn btn-outline-light btn-sm"
+                      @click="quitarCancion(cancion.id)"
+                    >
+                      <i class="bi bi-dash-circle"></i>
+                    </button>
                   </div>
-                  <span class="badge text-bg-dark">{{ cancion.duracion }}</span>
-                  <button
-                    class="btn btn-outline-light btn-sm"
-                    @click="quitarCancion(cancion.id)"
+                  <audio
+                    class="w-50 mb-3"
+                    controls
+                    :src="cancion.url"
                   >
-                    <i class="bi bi-dash-circle"></i>
-                  </button>
+                    Tu navegador no soporta audio HTML5.
+                  </audio>
                 </div>
               </div>
             </div>
@@ -137,10 +145,25 @@ const route = useRoute()
 const router = useRouter()
 
 const usuario = computed(() => authState.usuarioActual.value)
-const playlists = computed(() => {
-  if (!usuario.value) return []
-  return playlistService.obtenerPorUsuario(usuario.value.id)
-})
+const playlists = ref([])
+
+// Cargar playlists cuando hay usuario
+watch(
+  () => usuario.value?.id,
+  async (userId) => {
+    if (userId) {
+      try {
+        playlists.value = await playlistService.obtenerPorUsuario(userId)
+      } catch (error) {
+        console.error('Error al cargar playlists:', error)
+        playlists.value = []
+      }
+    } else {
+      playlists.value = []
+    }
+  },
+  { immediate: true },
+)
 
 const form = reactive({
   nombre: '',
@@ -203,15 +226,17 @@ function seleccionarPlaylist(id) {
   router.replace({ query: { ...route.query, playlistId: id } })
 }
 
-function crearPlaylist() {
+async function crearPlaylist() {
   try {
-    const playlist = playlistService.crear({
+    const playlist = await playlistService.crear({
       nombre: form.nombre,
       descripcion: form.descripcion,
       ownerId: usuario.value?.id,
     })
     form.nombre = ''
     form.descripcion = ''
+    // Recargar playlists
+    playlists.value = await playlistService.obtenerPorUsuario(usuario.value.id)
     seleccionarPlaylist(playlist.id)
     mostrarMensaje('Playlist creada correctamente.')
   } catch (error) {
@@ -219,24 +244,28 @@ function crearPlaylist() {
   }
 }
 
-function eliminarPlaylistSeleccionada() {
+async function eliminarPlaylistSeleccionada() {
   if (!playlistSeleccionada.value) return
   try {
-    playlistService.eliminar(playlistSeleccionada.value.id, usuario.value?.id)
+    await playlistService.eliminar(playlistSeleccionada.value.id, usuario.value?.id)
+    // Recargar playlists
+    playlists.value = await playlistService.obtenerPorUsuario(usuario.value.id)
     mostrarMensaje('Playlist eliminada.')
   } catch (error) {
     mostrarMensaje(error.message, true)
   }
 }
 
-function quitarCancion(cancionId) {
+async function quitarCancion(cancionId) {
   if (!playlistSeleccionada.value) return
   try {
-    playlistService.quitarCancion(
+    await playlistService.quitarCancion(
       playlistSeleccionada.value.id,
       cancionId,
       usuario.value?.id,
     )
+    // Recargar playlists para actualizar la vista
+    playlists.value = await playlistService.obtenerPorUsuario(usuario.value.id)
     mostrarMensaje('Canción retirada de la playlist.')
   } catch (error) {
     mostrarMensaje(error.message, true)

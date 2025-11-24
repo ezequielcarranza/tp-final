@@ -73,17 +73,6 @@
                 <span class="badge text-bg-dark border">{{ cancion.genero }}</span>
               </div>
               <div class="d-flex align-items-start gap-2">
-                <button
-                  v-if="playlistFavoritos"
-                  type="button"
-                  class="btn btn-outline-light favorite-btn"
-                  :class="{ 'is-active': esCancionFavorita(cancion.id) }"
-                  :aria-pressed="esCancionFavorita(cancion.id)"
-                  :title="esCancionFavorita(cancion.id) ? 'Quitar de Favoritos' : 'Agregar a Favoritos'"
-                  @click="alternarFavorito(cancion.id)"
-                >
-                  <i :class="['bi', esCancionFavorita(cancion.id) ? 'bi-heart-fill' : 'bi-heart']"></i>
-                </button>
                 <span class="badge rounded-pill text-bg-success">{{ cancion.duracion }}</span>
               </div>
             </div>
@@ -98,15 +87,28 @@
               Tu navegador no soporta audio HTML5.
             </audio>
 
-            <button
-              type="button"
-              class="btn btn-outline-light mt-auto"
-              :disabled="!playlistSeleccionada"
-              @click="agregarCancionAPlaylist(cancion.id)"
-            >
-              <i class="bi bi-plus-circle me-2"></i>
-              Añadir a playlist
-            </button>
+            <div class="d-flex justify-content-between align-items-center">
+              <button
+                type="button"
+                class="btn btn-outline-light me-2"
+                :disabled="!playlistSeleccionada"
+                @click="agregarCancionAPlaylist(cancion.id)"
+              >
+                <i class="bi bi-plus-circle me-2"></i>
+                Agregar a playlist
+              </button>
+              <button
+                v-if="playlistFavoritos"
+                type="button"
+                class="btn btn-outline-light favorite-btn"
+                :class="{ 'is-active': esCancionFavorita(cancion.id) }"
+                :aria-pressed="esCancionFavorita(cancion.id)"
+                :title="esCancionFavorita(cancion.id) ? 'Quitar de Favoritos' : 'Agregar a Favoritos'"
+                @click="alternarFavorito(cancion.id)"
+              >
+                <i :class="['bi', esCancionFavorita(cancion.id) ? 'bi-heart-fill' : 'bi-heart']"></i>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -115,7 +117,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, watchEffect } from 'vue'
+import { computed, ref, watch, watchEffect, onMounted } from 'vue'
 import { authState } from '../servicios/auth'
 import { songsService } from '../servicios/songs'
 import { playlistService } from '../servicios/playlists'
@@ -128,43 +130,83 @@ const playlistSeleccionada = ref('')
 const mensaje = ref('')
 const mensajeEsError = ref(false)
 const playlistFavoritosId = ref('')
+const playlistsUsuario = ref([])
+
+// Cargar canciones al montar el componente solo si el usuario está autenticado
+onMounted(async () => {
+  if (usuario.value) {
+    try {
+      await songsService.recargar()
+    } catch (error) {
+      // Solo mostrar error si no es 401 (no autenticado)
+      if (error.response?.status !== 401) {
+        console.error('Error al cargar canciones:', error)
+      }
+    }
+  }
+})
+
+// Cargar canciones cuando el usuario se autentica
+watch(
+  () => usuario.value?.id,
+  async (userId) => {
+    if (userId) {
+      try {
+        await songsService.recargar()
+      } catch (error) {
+        if (error.response?.status !== 401) {
+          console.error('Error al cargar canciones:', error)
+        }
+      }
+    }
+  },
+)
 
 watch(
   () => usuario.value?.id,
   () => {
     playlistSeleccionada.value = ''
+    cargarPlaylists()
   },
 )
 
-watchEffect(() => {
+async function cargarPlaylists() {
   const userId = usuario.value?.id
   if (!userId) {
+    playlistsUsuario.value = []
     playlistFavoritosId.value = ''
     return
   }
-  const playlists = playlistService.obtenerPorUsuario(userId)
-  let favoritos = playlists.find((playlist) => playlist.esDefault)
-  if (!favoritos) {
-    favoritos = playlistService.crear({
-      nombre: 'Favoritos',
-      descripcion: 'Tu lista personal de favoritos.',
-      ownerId: userId,
-      esDefault: true,
-    })
+  
+  try {
+    const playlists = await playlistService.obtenerPorUsuario(userId)
+    playlistsUsuario.value = playlists.filter((playlist) => playlist.esDefault !== true)
+    
+    let favoritos = playlists.find((playlist) => playlist.esDefault)
+    if (!favoritos) {
+      favoritos = await playlistService.crear({
+        nombre: 'Favoritos',
+        descripcion: 'Tu lista personal de favoritos.',
+        ownerId: userId,
+        esDefault: true,
+      })
+    }
+    playlistFavoritosId.value = favoritos.id
+  } catch (error) {
+    console.error('Error al cargar playlists:', error)
   }
-  playlistFavoritosId.value = favoritos.id
+}
+
+// Cargar playlists cuando hay usuario
+watchEffect(() => {
+  if (usuario.value?.id) {
+    cargarPlaylists()
+  }
 })
 
 const playlistFavoritos = computed(() => {
   if (!playlistFavoritosId.value) return null
   return playlistService.obtenerPorId(playlistFavoritosId.value)
-})
-
-const playlistsUsuario = computed(() => {
-  if (!usuario.value) return []
-  return playlistService
-    .obtenerPorUsuario(usuario.value.id)
-    .filter((playlist) => playlist.esDefault !== true)
 })
 
 const cancionesFiltradas = computed(() => {
@@ -186,18 +228,20 @@ function mostrarMensaje(texto, esError = false) {
   }, 3000)
 }
 
-function agregarCancionAPlaylist(cancionId) {
+async function agregarCancionAPlaylist(cancionId) {
   if (!playlistSeleccionada.value) {
     mostrarMensaje('Seleccioná una playlist primero.', true)
     return
   }
   try {
-    playlistService.agregarCancion(
+    await playlistService.agregarCancion(
       playlistSeleccionada.value,
       cancionId,
       usuario.value?.id,
     )
     mostrarMensaje('Canción agregada correctamente.')
+    // Recargar playlists para actualizar la vista
+    await cargarPlaylists()
   } catch (error) {
     mostrarMensaje(error.message, true)
   }
@@ -207,27 +251,29 @@ function esCancionFavorita(cancionId) {
   return Boolean(playlistFavoritos.value?.cancionIds.includes(cancionId))
 }
 
-function alternarFavorito(cancionId) {
+async function alternarFavorito(cancionId) {
   if (!playlistFavoritos.value) {
     mostrarMensaje('No encontramos tu playlist de favoritos.', true)
     return
   }
   try {
     if (esCancionFavorita(cancionId)) {
-      playlistService.quitarCancion(
+      await playlistService.quitarCancion(
         playlistFavoritos.value.id,
         cancionId,
         usuario.value?.id,
       )
       mostrarMensaje('Canción quitada de Favoritos.')
     } else {
-      playlistService.agregarCancion(
+      await playlistService.agregarCancion(
         playlistFavoritos.value.id,
         cancionId,
         usuario.value?.id,
       )
       mostrarMensaje('Canción agregada a Favoritos.')
     }
+    // Recargar playlists para actualizar la vista
+    await cargarPlaylists()
   } catch (error) {
     mostrarMensaje(error.message, true)
   }

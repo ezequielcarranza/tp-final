@@ -1,0 +1,39 @@
+@host=http://127.0.0.1:3001
+@jwt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWJqZWN0IjoiNWRmOTdiZDEtOGRiOS00YmYzLWIzZWQtOTc4YjI2OTQzMGM4IiwiZW1haWwiOiJ1c2VydGVzdEBnbWFpbC5jb20iLCJub21icmUiOiJVc2VydGVzdCIsImFwZWxsaWRvIjoiVXNlcnRlc3QiLCJyb2xlIjoiVVNFUiIsImlhdCI6MTc2Mzk2MjA2MywiZXhwIjoxNzY0MDQ4NDYzfQ.InPVTDwqSmV7UODM8XXNB6hDkI8_4D83YF7OnxKtIUE
+
+
+###
+GET {{host}}/api/song/songs
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+###
+GET {{host}}/api/song/b92e15ee-1b98-415a-9ba1-af16ec98a380
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+
+###
+POST {{host}}/api/song/create
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "titulo": "Take On Me",
+  "artista": "a-ha"
+}
+
+###
+PATCH {{host}}/api/song/b92e15ee-1b98-415a-9ba1-af16ec98a380
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "album": "TEST",
+  "portada": "TEST"
+}
+
+###
+DELETE {{host}}/api/song/b92e15ee-1b98-415a-9ba1-af16ec98a380
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json

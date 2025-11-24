@@ -52,56 +52,37 @@
         </div>
       </div>
     </div>
-
-    <section class="mt-5">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="h4 text-white">Tus playlists recientes</h2>
-        <RouterLink class="text-success fw-semibold" :to="{ name: 'playlists' }">
-          Ver todas &rarr;
-        </RouterLink>
-      </div>
-
-      <div v-if="playlistsUsuario.length === 0" class="text-center text-secondary py-5">
-        <p class="mb-0">Todavía no creaste playlists. ¡Comenzá ahora!</p>
-      </div>
-
-      <div v-else class="row g-3">
-        <div class="col-md-6 col-lg-4" v-for="playlist in playlistsDestacadas" :key="playlist.id">
-          <div class="playlist-card card border-0 h-100">
-            <div class="card-body">
-              <h3 class="h5 text-white mb-2">{{ playlist.nombre }}</h3>
-              <p class="text-white-50 mb-4">
-                {{ playlist.descripcion || 'Sin descripción' }}
-              </p>
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="badge bg-success-subtle text-success fw-semibold">
-                  {{ playlist.cancionIds.length }} canciones
-                </span>
-                <RouterLink
-                  class="btn btn-sm btn-outline-light"
-                  :to="{ name: 'playlists', query: { playlistId: playlist.id } }"
-                >
-                  Abrir
-                </RouterLink>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
   </section>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { authState } from '../servicios/auth'
+import { computed, onMounted, ref } from 'vue'
+import { authState, authService } from '../servicios/auth'
 import { songsService } from '../servicios/songs'
 import { playlistService } from '../servicios/playlists'
 
 const usuario = computed(() => authState.usuarioActual.value)
-
-const totalUsuarios = computed(() => authState.usuarios.value.length)
+const totalUsuarios = ref(0)
 const totalCanciones = computed(() => songsService.obtenerTodas().length)
+
+// Cargar datos cuando el usuario esté autenticado
+onMounted(async () => {
+  if (usuario.value) {
+    try {
+      // Cargar canciones
+      await songsService.recargar()
+      // Cargar usuarios (solo si es admin)
+      if (usuario.value.rol === 'admin') {
+        const usuarios = await authService.getUsuarios()
+        totalUsuarios.value = usuarios.length
+      }
+    } catch (error) {
+      if (error.response?.status !== 401) {
+        console.error('Error al cargar datos:', error)
+      }
+    }
+  }
+})
 
 const playlistsUsuario = computed(() => {
   if (!usuario.value) return []

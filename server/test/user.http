@@ -1,0 +1,44 @@
+@host=http://127.0.0.1:3001
+@jwt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWJqZWN0IjoiOWQ0Y2U1Y2QtNjBiZi00M2NlLTk0NTAtYzQyZWY3N2RlMjUwIiwiZW1haWwiOiJsdWphbjk4MTRAZ21haWwuY29tIiwibm9tYnJlIjoiTWF0aWFzIiwiYXBlbGxpZG8iOiJMdWphbiIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc2Mzk1NTM2NiwiZXhwIjoxNzY0MDQxNzY2fQ.wgLKmQzFuCgZanSgcKWH3xYHAJFU3irrvhOfV-EC5I0
+
+GET {{host}}/api/user/users
+Authorization: Bearer {{jwt_token}}
+
+###
+GET {{host}}/api/user/ac05de4c-67b1-4b21-8ea3-e9040f65546a
+Authorization: Bearer {{jwt_token}}
+
+###
+DELETE {{host}}/api/user/ac05de4c-67b1-4b21-8ea3-e9040f65546a
+Authorization: Bearer {{jwt_token}}
+
+###
+PATCH {{host}}/api/user/ac05de4c-67b1-4b21-8ea3-e9040f65546a
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "nombre": "borrar",
+  "email": "UPDATEDdddd@example.com"
+}
+
+###
+POST {{host}}/api/user/create
+Content-Type: application/json
+
+{
+    "nombre":"Ezequuiel",
+    "apellido":"Carranza",
+    "fecha_nacimiento":"1999-06-26",
+    "password":"Password123",
+    "email": "ezequuielcarranza02@gmail.com"
+}
+
+###
+PATCH {{host}}/api/user/c52cb3e9-89c4-4aee-bf3d-f313d02337a5
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "role": "ADMIN"
+}

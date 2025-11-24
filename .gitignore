@@ -34,3 +34,8 @@ coverage
 
 # Vitest
 __screenshots__/
+
+# Backend/Server
+server/.env
+server/exports/
+server/node_modules/

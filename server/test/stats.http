@@ -1,0 +1,28 @@
+@host=http://127.0.0.1:3001
+@jwt_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWJqZWN0IjoiY2VlNDk1NWQtNTkyNS00OTI0LTlhNGEtNjY0YjcxMGMyZDUwIiwiZW1haWwiOiJlemVxdXVpZWxjYXJyYW56YTAyQGdtYWlsLmNvbSIsIm5vbWJyZSI6IkV6ZXF1dWllbCIsImFwZWxsaWRvIjoiQ2FycmFuemEiLCJyb2xlIjoiVVNFUiIsImlhdCI6MTc2NDAwNzk0NywiZXhwIjoxNzY0MDk0MzQ3fQ.UlqCApYMuQ1yknZ8NhPSo7xQShOAC1daZtp8PuT1Z6I
+
+###
+GET {{host}}/api/stats/top-songs?limit=5
+Authorization: Bearer {{jwt_token}}
+
+###
+GET {{host}}/api/stats/me/top-songs?limit=3
+Authorization: Bearer {{jwt_token}}
+
+###
+GET {{host}}/api/stats/me/top-artists?limit=3
+Authorization: Bearer {{jwt_token}}
+
+###
+GET {{host}}/api/stats/me/top-albums?limit=3
+Authorization: Bearer {{jwt_token}}
+
+###
+GET {{host}}/api/stats/me/top-genres?limit=3
+Authorization: Bearer {{jwt_token}}
+
+###
+GET {{host}}/api/stats/export?limit=3
+Authorization: Bearer {{jwt_token}}
+
+> ../exports/musicapp_stats.xlsx

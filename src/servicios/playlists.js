@@ -1,63 +1,74 @@
 import { reactive } from 'vue'
-import { loadState, saveState } from './storage'
+import api, { handleResponse, handleError } from './api'
 import { songsService } from './songs'
 
-const PLAYLISTS_KEY = 'spotify-playlists'
-
-const playlistsIniciales = [
-  {
-    id: 'pl-001',
-    nombre: 'Favoritas del Admin',
-    descripcion: 'Canciones para demostrar la demo.',
-    ownerId: 'user-admin',
-    creadaEn: new Date().toISOString(),
-    cancionIds: ['song-001', 'song-002'],
-    esDefault: false,
-  },
-]
-
 const state = reactive({
-  playlists: loadState(PLAYLISTS_KEY, playlistsIniciales),
+  playlists: [],
+  cargando: false,
 })
 
-function persistir() {
-  saveState(PLAYLISTS_KEY, state.playlists)
-}
-
-function generarId() {
-  const random =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-  return `pl-${random}`
-}
-
-function formatearOpciones(opciones) {
-  if (typeof opciones === 'string') {
-    return { ownerId: opciones, esAdmin: false }
-  }
+// Función para normalizar la playlist del backend al formato del frontend
+function normalizarPlaylist(playlist, canciones = []) {
   return {
-    ownerId: opciones?.ownerId ?? null,
-    esAdmin: Boolean(opciones?.esAdmin),
+    id: playlist.id,
+    nombre: playlist.nombre || '',
+    descripcion: playlist.descripcion || null,
+    ownerId: playlist.ownerId || null,
+    creadaEn: playlist.createdAt || playlist.creadaEn || new Date().toISOString(),
+    cancionIds: canciones.map((c) => c.id || c),
+    esDefault: playlist.esDefault || false,
   }
 }
 
-function asegurarPermiso(playlist, opciones, mensajePersonalizado) {
-  const { ownerId, esAdmin } = formatearOpciones(opciones)
-  if (esAdmin) return
-  if (ownerId && playlist.ownerId === ownerId) return
-  throw new Error(
-    mensajePersonalizado ??
-      'Solo el dueño de la playlist o un administrador puede realizar esta acción.',
-  )
+// Cargar playlists del backend
+async function cargarPlaylists() {
+  if (state.cargando) return
+  
+  state.cargando = true
+  try {
+    const response = await api.get('/api/playlist/playlists')
+    const data = handleResponse(response)
+    const playlists = response.data.payload || data || []
+    
+    // Cargar canciones para cada playlist
+    const playlistsConCanciones = await Promise.all(
+      playlists.map(async (playlist) => {
+        try {
+          const songsResponse = await api.get(`/api/playlist/playlists/${playlist.id}/songs`)
+          const songsData = handleResponse(songsResponse)
+          const canciones = songsData.canciones || []
+          return normalizarPlaylist(playlist, canciones)
+        } catch (error) {
+          // Si falla, usar playlist sin canciones
+          return normalizarPlaylist(playlist, [])
+        }
+      }),
+    )
+    
+    state.playlists = playlistsConCanciones
+  } catch (error) {
+    // Solo mostrar error si no es 401 (no autenticado)
+    if (error.response?.status !== 401) {
+      console.error('Error al cargar playlists:', error)
+      handleError(error)
+    }
+    // No limpiar playlists si es 401, mantener las que ya están
+    if (error.response?.status === 401) {
+      // Usuario no autenticado, no hacer nada
+      return
+    }
+    state.playlists = []
+  } finally {
+    state.cargando = false
+  }
 }
 
-function reemplazarPlaylists(nuevasPlaylists) {
-  state.playlists.splice(0, state.playlists.length, ...nuevasPlaylists)
-}
+// Cargar playlists al iniciar (solo si hay usuario autenticado)
+// Esto se hará cuando se llame a obtenerPorUsuario
 
 export const playlistService = {
-  listar() {
+  async listar() {
+    await cargarPlaylists()
     return state.playlists
   },
 
@@ -65,101 +76,137 @@ export const playlistService = {
     return state.playlists.find((playlist) => playlist.id === id) ?? null
   },
 
-  obtenerPorUsuario(userId) {
+  async obtenerPorUsuario(userId) {
+    // Cargar playlists si no están cargadas
+    if (state.playlists.length === 0 && !state.cargando) {
+      await cargarPlaylists()
+    }
+    
+    // Filtrar por usuario
     return state.playlists.filter((playlist) => playlist.ownerId === userId)
   },
 
-  crear({ nombre, descripcion, ownerId, canciones = [], esDefault = false }) {
+  async crear({ nombre, descripcion, ownerId, canciones = [], esDefault = false }) {
     if (!ownerId) {
       throw new Error('La playlist debe pertenecer a un usuario.')
     }
-    const nuevaPlaylist = {
-      id: generarId(),
-      nombre,
-      descripcion,
-      ownerId,
-      creadaEn: new Date().toISOString(),
-      cancionIds: [],
-      esDefault: Boolean(esDefault),
-    }
-    canciones.forEach((cancionId) => {
-      if (songsService.buscarPorId(cancionId)) {
-        nuevaPlaylist.cancionIds.push(cancionId)
+    
+    try {
+      const response = await api.post('/api/playlist/playlists', {
+        nombre,
+        descripcion: descripcion || null,
+      })
+      
+      const data = handleResponse(response)
+      const nuevaPlaylist = response.data.payload || data
+      
+      // Agregar canciones si se proporcionaron
+      if (canciones.length > 0) {
+        for (const cancionId of canciones) {
+          try {
+            await api.post(`/api/playlist/playlists/${nuevaPlaylist.id}/songs`, {
+              songId: cancionId,
+            })
+          } catch (error) {
+            console.warn(`No se pudo agregar la canción ${cancionId} a la playlist:`, error)
+          }
+        }
       }
-    })
-    state.playlists.push(nuevaPlaylist)
-    persistir()
-    return nuevaPlaylist
-  },
-
-  actualizar(id, { nombre, descripcion }, opciones) {
-    const playlist = this.obtenerPorId(id)
-    if (!playlist) {
-      throw new Error('La playlist no existe.')
-    }
-    asegurarPermiso(
-      playlist,
-      opciones,
-      'Solo el dueño de la playlist o un administrador puede editarla.',
-    )
-    playlist.nombre = nombre ?? playlist.nombre
-    playlist.descripcion = descripcion ?? playlist.descripcion
-    persistir()
-    return playlist
-  },
-
-  eliminar(id, opciones) {
-    const indice = state.playlists.findIndex((playlist) => playlist.id === id)
-    if (indice === -1) {
-      throw new Error('La playlist no existe.')
-    }
-    const playlist = state.playlists[indice]
-    if (playlist.esDefault && formatearOpciones(opciones).esAdmin) {
-      throw new Error('No se puede eliminar la playlist predeterminada del usuario.')
-    }
-    asegurarPermiso(
-      playlist,
-      opciones,
-      'Solo el dueño de la playlist o un administrador puede eliminarla.',
-    )
-    state.playlists.splice(indice, 1)
-    persistir()
-  },
-
-  agregarCancion(playlistId, cancionId, opciones) {
-    const playlist = this.obtenerPorId(playlistId)
-    if (!playlist) {
-      throw new Error('La playlist no existe.')
-    }
-    asegurarPermiso(
-      playlist,
-      opciones,
-      'Solo el dueño de la playlist o un administrador puede modificarla.',
-    )
-    if (!songsService.buscarPorId(cancionId)) {
-      throw new Error('La canción seleccionada no existe.')
-    }
-    if (!playlist.cancionIds.includes(cancionId)) {
-      playlist.cancionIds.push(cancionId)
-      persistir()
+      
+      // Recargar playlists para obtener la versión completa
+      await cargarPlaylists()
+      
+      const playlistCompleta = this.obtenerPorId(nuevaPlaylist.id)
+      return playlistCompleta || normalizarPlaylist(nuevaPlaylist, canciones)
+    } catch (error) {
+      handleError(error)
+      throw error
     }
   },
 
-  quitarCancion(playlistId, cancionId, opciones) {
-    const playlist = this.obtenerPorId(playlistId)
-    if (!playlist) {
-      throw new Error('La playlist no existe.')
+  async actualizar(id, { nombre, descripcion }, opciones) {
+    try {
+      const response = await api.patch(`/api/playlist/playlists/${id}`, {
+        nombre,
+        descripcion: descripcion || null,
+      })
+      
+      const data = handleResponse(response)
+      const playlistActualizada = response.data.payload || data
+      
+      // Actualizar en la lista local
+      const indice = state.playlists.findIndex((p) => p.id === id)
+      if (indice !== -1) {
+        // Mantener las canciones existentes
+        const cancionesActuales = state.playlists[indice].cancionIds
+        state.playlists[indice] = normalizarPlaylist(playlistActualizada, cancionesActuales)
+      } else {
+        // Si no está en la lista, recargar todas
+        await cargarPlaylists()
+      }
+      
+      return this.obtenerPorId(id)
+    } catch (error) {
+      handleError(error)
+      throw error
     }
-    asegurarPermiso(
-      playlist,
-      opciones,
-      'Solo el dueño de la playlist o un administrador puede modificarla.',
-    )
-    playlist.cancionIds = playlist.cancionIds.filter((id) => id !== cancionId)
-    persistir()
+  },
+
+  async eliminar(id, opciones) {
+    try {
+      await api.delete(`/api/playlist/playlists/${id}`)
+      
+      // Eliminar de la lista local
+      const indice = state.playlists.findIndex((playlist) => playlist.id === id)
+      if (indice !== -1) {
+        state.playlists.splice(indice, 1)
+      }
+    } catch (error) {
+      handleError(error)
+      throw error
+    }
+  },
+
+  async agregarCancion(playlistId, cancionId, opciones) {
+    try {
+      await api.post(`/api/playlist/playlists/${playlistId}/songs`, {
+        songId: cancionId,
+      })
+      
+      // Actualizar en la lista local
+      const playlist = this.obtenerPorId(playlistId)
+      if (playlist && !playlist.cancionIds.includes(cancionId)) {
+        playlist.cancionIds.push(cancionId)
+      } else {
+        // Si no está en la lista, recargar
+        await cargarPlaylists()
+      }
+    } catch (error) {
+      handleError(error)
+      throw error
+    }
+  },
+
+  async quitarCancion(playlistId, cancionId, opciones) {
+    try {
+      await api.delete(`/api/playlist/playlists/${playlistId}/songs/${cancionId}`)
+      
+      // Actualizar en la lista local
+      const playlist = this.obtenerPorId(playlistId)
+      if (playlist) {
+        playlist.cancionIds = playlist.cancionIds.filter((id) => id !== cancionId)
+      } else {
+        // Si no está en la lista, recargar
+        await cargarPlaylists()
+      }
+    } catch (error) {
+      handleError(error)
+      throw error
+    }
   },
 
   removerCancionDeTodas(cancionId) {
+    // Actualizar todas las playlists localmente
     let huboCambios = false
     state.playlists.forEach((playlist) => {
       if (playlist.cancionIds.includes(cancionId)) {
@@ -167,17 +214,18 @@ export const playlistService = {
         huboCambios = true
       }
     })
-    if (huboCambios) {
-      persistir()
-    }
+    // Nota: No se hace llamada al backend porque esto debería manejarse cuando se elimina la canción
   },
 
-  eliminarPorUsuario(userId) {
-    const restantes = state.playlists.filter((playlist) => playlist.ownerId !== userId)
-    if (restantes.length !== state.playlists.length) {
-      reemplazarPlaylists(restantes)
-      persistir()
+  async eliminarPorUsuario(userId) {
+    // Obtener todas las playlists del usuario y eliminarlas
+    const playlistsUsuario = this.obtenerPorUsuario(userId)
+    for (const playlist of playlistsUsuario) {
+      try {
+        await this.eliminar(playlist.id, { ownerId: userId, esAdmin: false })
+      } catch (error) {
+        console.warn(`No se pudo eliminar la playlist ${playlist.id}:`, error)
+      }
     }
   },
 }
-

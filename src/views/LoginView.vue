@@ -48,46 +48,14 @@
           <span>¿Todavía no tenés una cuenta?</span>
         </div>
 
-        <form @submit.prevent="onRegister" class="register-form">
-          <div class="row g-3">
-            <div class="col-12">
-              <label class="form-label text-white-50">Nombre completo</label>
-              <input
-                v-model="registerForm.nombre"
-                type="text"
-                class="form-control"
-                placeholder="Tu nombre"
-                required
-              />
-            </div>
-            <div class="col-12">
-              <label class="form-label text-white-50">Correo electrónico</label>
-              <input
-                v-model="registerForm.email"
-                type="email"
-                class="form-control"
-                placeholder="correo@ejemplo.com"
-                required
-              />
-            </div>
-            <div class="col-12">
-              <label class="form-label text-white-50">Contraseña</label>
-              <input
-                v-model="registerForm.password"
-                type="password"
-                class="form-control"
-                placeholder="Mínimo 6 caracteres"
-                minlength="6"
-                required
-              />
-            </div>
-            <div class="col-12">
-              <button class="btn btn-outline-light w-100 py-2" type="submit">
-                Crear cuenta
-              </button>
-            </div>
-          </div>
-        </form>
+        <div class="col-12">
+          <RouterLink
+            class="btn btn-outline-light w-100 py-2"
+            :to="{ name: 'registro' }"
+          >
+            Registrate
+          </RouterLink>
+        </div>
 
         <div class="mt-4 small text-secondary">
           <p class="mb-1 fw-semibold text-white">Credenciales de prueba</p>
@@ -134,10 +102,10 @@ function informar(texto, esError = false) {
   mensajeEsError.value = esError
 }
 
-function onLogin() {
+async function onLogin() {
   limpiarMensajes()
   try {
-    authService.login(loginForm.value)
+    await authService.login(loginForm.value)
     informar('¡Bienvenido! Redirigiendo...', false)
     const redirect = route.query.redirect
     setTimeout(() => {

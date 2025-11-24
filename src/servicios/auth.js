@@ -1,141 +1,197 @@
 import { reactive, computed } from 'vue'
-import { loadState, saveState, clearState } from './storage'
+import api, { tokenService, handleResponse, handleError } from './api'
 import { playlistService } from './playlists'
 
-const USERS_KEY = 'spotify-users'
 const SESSION_KEY = 'spotify-session'
 
-const defaultUsers = [
-  {
-    id: 'user-admin',
-    nombre: 'Administrador',
-    email: 'admin@spotify.dev',
-    password: 'admin123',
-    rol: 'admin',
-  },
-  {
-    id: 'user-001',
-    nombre: 'Ezequiel',
-    email: 'ezequiel@spotify.dev',
-    password: 'user123',
-    rol: 'usuario',
-  },
-]
-
 const state = reactive({
-  usuarios: loadState(USERS_KEY, defaultUsers),
-  sesionActivaId: loadState(SESSION_KEY, null),
+  usuarioActual: null,
 })
 
-function persistUsuarios() {
-  saveState(USERS_KEY, state.usuarios)
-}
-
-function persistSesion() {
-  if (state.sesionActivaId) {
-    saveState(SESSION_KEY, state.sesionActivaId)
-  } else {
-    clearState(SESSION_KEY)
+// Cargar usuario del token si existe
+function loadUserFromToken() {
+  const token = tokenService.getToken()
+  if (token) {
+    try {
+      // Decodificar el token JWT (sin verificar, solo para obtener datos)
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      state.usuarioActual = {
+        id: payload.subject,
+        nombre: payload.nombre,
+        apellido: payload.apellido,
+        email: payload.email,
+        rol: payload.role?.toLowerCase() || 'usuario',
+      }
+    } catch (error) {
+      // Si hay error al decodificar, limpiar token
+      tokenService.clearToken()
+    }
   }
 }
 
-function buscarUsuarioPorEmail(email) {
-  return state.usuarios.find((usuario) => usuario.email === email)
-}
-
-function generarId() {
-  const random =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-  return `user-${random}`
-}
+// Cargar usuario al iniciar
+loadUserFromToken()
 
 export const authState = {
-  usuarios: computed(() => state.usuarios),
-  usuarioActual: computed(() =>
-    state.usuarios.find((usuario) => usuario.id === state.sesionActivaId) ?? null,
-  ),
+  usuarioActual: computed(() => state.usuarioActual),
 }
 
 export const authService = {
-  login({ email, password }) {
-    const usuario = buscarUsuarioPorEmail(email)
-    if (!usuario) {
-      throw new Error('No existe un usuario con ese email.')
+  async login({ email, password }) {
+    try {
+      const response = await api.post('/api/auth/login', { email, password })
+      const data = handleResponse(response)
+      
+      // Guardar token
+      if (response.data.token) {
+        tokenService.setToken(response.data.token)
+      }
+      
+      // Actualizar usuario actual
+      const user = response.data.payload || data
+      state.usuarioActual = {
+        id: user.id,
+        nombre: user.nombre,
+        apellido: user.apellido || '',
+        email: user.email,
+        rol: user.role?.toLowerCase() || 'usuario',
+      }
+      
+      return state.usuarioActual
+    } catch (error) {
+      handleError(error)
+      throw error
     }
-    if (usuario.password !== password) {
-      throw new Error('La contraseña no es correcta.')
-    }
-    state.sesionActivaId = usuario.id
-    persistSesion()
-    return usuario
   },
 
   logout() {
-    state.sesionActivaId = null
-    persistSesion()
+    state.usuarioActual = null
+    tokenService.clearToken()
   },
 
-  registrar({ nombre, email, password }) {
-    const existente = buscarUsuarioPorEmail(email)
-    if (existente) {
-      throw new Error('Ya existe un usuario registrado con ese email.')
+  async registrar({ nombre, email, password }) {
+    try {
+      // El backend requiere nombre, apellido, email, fecha_nacimiento, password
+      // Si no se proporciona apellido, usar el nombre como apellido
+      // Si no se proporciona fecha_nacimiento, usar una fecha por defecto (18 años atrás)
+      const nombreCompleto = nombre.trim().split(' ')
+      const primerNombre = nombreCompleto[0] || nombre
+      const apellido = nombreCompleto.slice(1).join(' ') || primerNombre
+      
+      // Calcular fecha de nacimiento (18 años atrás por defecto)
+      const fechaNacimiento = new Date()
+      fechaNacimiento.setFullYear(fechaNacimiento.getFullYear() - 18)
+      const fechaNacimientoStr = fechaNacimiento.toISOString().split('T')[0]
+      
+      const response = await api.post('/api/user/create', {
+        nombre: primerNombre,
+        apellido: apellido,
+        email: email,
+        fecha_nacimiento: fechaNacimientoStr,
+        password: password,
+      })
+      
+      const data = handleResponse(response)
+      const nuevoUsuario = response.data.payload || data
+      
+      // Crear playlist por defecto
+      try {
+        // Primero necesitamos hacer login para obtener el token
+        await this.login({ email, password })
+        
+        // Luego crear la playlist favoritos
+        await playlistService.crear({
+          nombre: 'Favoritos',
+          descripcion: 'Tu lista personal de favoritos.',
+          ownerId: nuevoUsuario.id,
+          esDefault: true,
+        })
+      } catch (error) {
+        console.warn('No se pudo crear la playlist por defecto:', error)
+      }
+      
+      return {
+        id: nuevoUsuario.id,
+        nombre: nuevoUsuario.nombre,
+        apellido: nuevoUsuario.apellido || '',
+        email: nuevoUsuario.email,
+        rol: nuevoUsuario.role?.toLowerCase() || 'usuario',
+      }
+    } catch (error) {
+      handleError(error)
+      throw error
     }
-    const nuevoUsuario = {
-      id: generarId(),
-      nombre,
-      email,
-      password,
-      rol: 'usuario',
-    }
-    state.usuarios.push(nuevoUsuario)
-    persistUsuarios()
-    return nuevoUsuario
   },
 
-  actualizarPerfil(id, datosParciales) {
-    const usuario = state.usuarios.find((item) => item.id === id)
-    if (!usuario) {
-      throw new Error('El usuario no existe.')
+  async actualizarPerfil(id, datosParciales) {
+    try {
+      const response = await api.patch(`/api/user/${id}`, datosParciales)
+      const data = handleResponse(response)
+      const usuarioActualizado = response.data.newDataUser || data
+      
+      // Actualizar usuario actual si es el mismo
+      if (state.usuarioActual?.id === id) {
+        state.usuarioActual = {
+          ...state.usuarioActual,
+          ...usuarioActualizado,
+          rol: usuarioActualizado.role?.toLowerCase() || state.usuarioActual.rol,
+        }
+      }
+      
+      return {
+        id: usuarioActualizado.id,
+        nombre: usuarioActualizado.nombre,
+        apellido: usuarioActualizado.apellido || '',
+        email: usuarioActualizado.email,
+        rol: usuarioActualizado.role?.toLowerCase() || 'usuario',
+      }
+    } catch (error) {
+      handleError(error)
+      throw error
     }
-    Object.assign(usuario, datosParciales)
-    persistUsuarios()
-    return usuario
   },
 
-  eliminarUsuario(id) {
-    const usuario = state.usuarios.find((item) => item.id === id)
-    if (!usuario) {
-      throw new Error('El usuario no existe.')
-    }
-    if (usuario.rol === 'admin') {
-      throw new Error('No es posible eliminar la cuenta del administrador.')
-    }
-    const indice = state.usuarios.findIndex((item) => item.id === id)
-    if (indice === -1) {
-      throw new Error('El usuario no existe.')
-    }
-    state.usuarios.splice(indice, 1)
-    persistUsuarios()
-    playlistService.eliminarPorUsuario(id)
-    if (state.sesionActivaId === id) {
-      state.sesionActivaId = null
-      persistSesion()
+  async eliminarUsuario(id) {
+    try {
+      await api.delete(`/api/user/${id}`)
+      
+      // Si es el usuario actual, cerrar sesión
+      if (state.usuarioActual?.id === id) {
+        this.logout()
+      }
+      
+      // Eliminar playlists del usuario
+      try {
+        const playlists = await playlistService.obtenerPorUsuario(id)
+        for (const playlist of playlists) {
+          await playlistService.eliminar(playlist.id, { ownerId: id, esAdmin: false })
+        }
+      } catch (error) {
+        console.warn('No se pudieron eliminar las playlists del usuario:', error)
+      }
+    } catch (error) {
+      handleError(error)
+      throw error
     }
   },
 
   isAuthenticated() {
-    return Boolean(state.sesionActivaId)
+    return Boolean(state.usuarioActual && tokenService.getToken())
   },
 
   isAdmin() {
-    const usuario = authState.usuarioActual.value
-    return usuario?.rol === 'admin'
+    const usuario = state.usuarioActual
+    return usuario?.rol === 'admin' || usuario?.rol === 'ADMIN'
   },
 
-  getUsuarios() {
-    return state.usuarios
+  async getUsuarios() {
+    try {
+      const response = await api.get('/api/user/users')
+      const data = handleResponse(response)
+      return response.data.payload || data
+    } catch (error) {
+      handleError(error)
+      throw error
+    }
   },
 }
-
