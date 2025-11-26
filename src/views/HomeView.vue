@@ -17,7 +17,7 @@
       </RouterLink>
     </header>
 
-    <div class="row g-4 mt-1">
+    <!-- <div class="row g-4 mt-1">
       <div class="col-md-4">
         <div class="info-card">
           <span class="info-card__icon bg-success-subtle text-success">
@@ -51,7 +51,7 @@
           </p>
         </div>
       </div>
-    </div>
+    </div> -->
   </section>
 </template>
 

@@ -94,18 +94,24 @@ export const authService = {
       const data = handleResponse(response)
       const nuevoUsuario = response.data.payload || data
       
-      // Crear playlist por defecto
+      // Crear playlist por defecto solo si no existe
       try {
         // Primero necesitamos hacer login para obtener el token
         await this.login({ email, password })
         
-        // Luego crear la playlist favoritos
-        await playlistService.crear({
-          nombre: 'Favoritos',
-          descripcion: 'Tu lista personal de favoritos.',
-          ownerId: nuevoUsuario.id,
-          esDefault: true,
-        })
+        // Verificar si ya existe una playlist "Favoritos" para este usuario
+        const playlistsUsuario = await playlistService.obtenerPorUsuario(nuevoUsuario.id)
+        const existeFavoritos = playlistsUsuario.some((playlist) => playlist.nombre === 'Favoritos')
+        
+        // Solo crear si no existe
+        if (!existeFavoritos) {
+          await playlistService.crear({
+            nombre: 'Favoritos',
+            descripcion: 'Tu lista personal de favoritos.',
+            ownerId: nuevoUsuario.id,
+            esDefault: true,
+          })
+        }
       } catch (error) {
         console.warn('No se pudo crear la playlist por defecto:', error)
       }

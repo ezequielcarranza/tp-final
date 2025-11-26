@@ -15,7 +15,7 @@
       {{ mensaje }}
     </div>
 
-    <div class="card border-0 admin-tabla">
+    <div v-else class="card border-0 admin-tabla">
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table align-middle table-dark table-striped m-0">
@@ -24,7 +24,6 @@
                 <th>Nombre</th>
                 <th>Email</th>
                 <th>Rol</th>
-                <th class="text-center">Playlists</th>
                 <th class="text-end">Acciones</th>
               </tr>
             </thead>
@@ -43,14 +42,6 @@
                     {{ usuario.rol }}
                   </span>
                 </td>
-                <td class="text-center">
-                  <button
-                    class="btn btn-outline-light btn-sm"
-                    @click="administrarPlaylists(usuario)"
-                  >
-                    Administrar playlists
-                  </button>
-                </td>
                 <td class="text-end">
                   <button
                     class="btn btn-outline-danger btn-sm"
@@ -62,7 +53,7 @@
                   </button>
                 </td>
               </tr>
-              <tr v-if="usuarios.length === 0">
+              <tr v-if="usuarios.length === 0 && !cargando">
                 <td colspan="4" class="text-center text-secondary py-5">
                   No hay usuarios registrados.
                 </td>
@@ -76,14 +67,41 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { authService, authState } from '../servicios/auth'
+import { ref, onMounted } from 'vue'
+import { authService } from '../servicios/auth'
 
-const usuarios = computed(() => authState.usuarios.value ?? [])
+const usuarios = ref([])
 const mensaje = ref('')
 const mensajeEsError = ref(false)
-const router = useRouter()
+const cargando = ref(false)
+
+// Cargar usuarios al montar el componente
+onMounted(async () => {
+  await cargarUsuarios()
+})
+
+async function cargarUsuarios() {
+  cargando.value = true
+  try {
+    const usuariosData = await authService.getUsuarios()
+    // Normalizar los usuarios para que tengan el formato esperado
+    // El backend devuelve: { id, nombre, apellido, email, role }
+    usuarios.value = Array.isArray(usuariosData) 
+      ? usuariosData.map((usuario) => ({
+          id: usuario.id,
+          nombre: `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || 'Sin nombre',
+          email: usuario.email || '',
+          rol: usuario.role?.toLowerCase() || 'usuario',
+        }))
+      : []
+  } catch (error) {
+    console.error('Error al cargar usuarios:', error)
+    notificar(error.message || 'Error al cargar usuarios', true)
+    usuarios.value = []
+  } finally {
+    cargando.value = false
+  }
+}
 
 function notificar(texto, esError = false) {
   mensaje.value = texto
@@ -94,21 +112,16 @@ function notificar(texto, esError = false) {
   }, 2500)
 }
 
-function eliminarUsuario(usuario) {
+async function eliminarUsuario(usuario) {
   if (!confirm(`¿Eliminar la cuenta de "${usuario.nombre}"?`)) return
   try {
-    authService.eliminarUsuario(usuario.id)
+    await authService.eliminarUsuario(usuario.id)
     notificar('Usuario eliminado correctamente.')
+    // Recargar la lista de usuarios
+    await cargarUsuarios()
   } catch (error) {
-    notificar(error.message, true)
+    notificar(error.message || 'Error al eliminar usuario', true)
   }
-}
-
-function administrarPlaylists(usuario) {
-  router.push({
-    name: 'admin-playlists',
-    query: { ownerId: usuario.id },
-  })
 }
 </script>
 

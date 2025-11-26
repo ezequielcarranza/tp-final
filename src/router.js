@@ -45,12 +45,6 @@ const routes = [
     component: () => import('./views/AdminUsersView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
-  {
-    path: '/admin/playlists',
-    name: 'admin-playlists',
-    component: () => import('./views/AdminPlaylistsView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true },
-  },
   { path: '/:pathMatch(.*)*', redirect: '/inicio' },
 ]
 

@@ -3,7 +3,7 @@
     <div class="container">
       <RouterLink class="navbar-brand fw-semibold" :to="{ name: 'inicio' }">
         <i class="bi bi-music-note-beamed me-2"></i>
-        Vue Spotify
+        MusicApp
       </RouterLink>
 
       <button

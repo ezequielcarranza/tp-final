@@ -19,6 +19,7 @@ export const songService = {
       duracion: spotifyData.durationSeg ?? 0,
       portada: spotifyData.cover ?? 'no disponible',
       fecha_lanzamiento: spotifyData.albumReleaseDate ?? null,
+      url: spotifyData.previewUrl ?? null, // Guardar la URL de preview de Spotify
     };
 
     const songCreated = await database.createOne(song);
@@ -44,6 +45,7 @@ export const songService = {
       duracion: payload.duracion,
       portada: payload.portada,
       fecha_lanzamiento: payload.fecha_lanzamiento,
+      url: payload.url,
     });
 
     if (Object.keys(dataToUpdate).length === 0) {

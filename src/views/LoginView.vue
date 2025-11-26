@@ -60,8 +60,7 @@
         <div class="mt-4 small text-secondary">
           <p class="mb-1 fw-semibold text-white">Credenciales de prueba</p>
           <ul class="list-unstyled small m-0">
-            <li>Administrador: admin@spotify.dev / admin123</li>
-            <li>Usuario demo: ezequiel@spotify.dev / user123</li>
+            <li>Administrador: ezequuielcarranza02@gmail.com / Password123</li>
           </ul>
         </div>
       </div>
@@ -79,8 +78,8 @@ const router = useRouter()
 const route = useRoute()
 
 const loginForm = ref({
-  email: 'admin@spotify.dev',
-  password: 'admin123',
+  email: 'ezequuielcarranza02@gmail.com',
+  password: 'Password123',
 })
 
 const registerForm = ref({
@@ -116,16 +115,10 @@ async function onLogin() {
   }
 }
 
-function onRegister() {
+async function onRegister() {
   limpiarMensajes()
   try {
-    const nuevoUsuario = authService.registrar(registerForm.value)
-    playlistService.crear({
-      nombre: 'Favoritos',
-      descripcion: 'Tu lista personal de favoritos.',
-      ownerId: nuevoUsuario.id,
-      esDefault: true,
-    })
+    await authService.registrar(registerForm.value)
     informar('Cuenta creada con éxito. Ahora podés iniciar sesión.', false)
     registerForm.value = { nombre: '', email: '', password: '' }
   } catch (error) {

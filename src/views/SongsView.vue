@@ -80,12 +80,18 @@
             <p class="text-white-50 small mb-3">{{ cancion.descripcion }}</p>
 
             <audio
+              v-if="cancion.url"
               class="w-100 mb-3"
               controls
               :src="cancion.url"
+              @play="registrarReproduccion(cancion.id)"
             >
               Tu navegador no soporta audio HTML5.
             </audio>
+            <div v-else class="alert alert-warning small mb-3">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              Audio no disponible
+            </div>
 
             <div class="d-flex justify-content-between align-items-center">
               <button
@@ -180,18 +186,20 @@ async function cargarPlaylists() {
   
   try {
     const playlists = await playlistService.obtenerPorUsuario(userId)
-    playlistsUsuario.value = playlists.filter((playlist) => playlist.esDefault !== true)
     
-    let favoritos = playlists.find((playlist) => playlist.esDefault)
-    if (!favoritos) {
-      favoritos = await playlistService.crear({
-        nombre: 'Favoritos',
-        descripcion: 'Tu lista personal de favoritos.',
-        ownerId: userId,
-        esDefault: true,
-      })
+    // Buscar playlist "Favoritos" por nombre (no por esDefault ya que no existe en la BD)
+    let favoritos = playlists.find((playlist) => playlist.nombre === 'Favoritos')
+    
+    // Si no existe, no la creamos aquí (solo se crea durante el registro)
+    // Esto evita crear múltiples playlists "Favoritos"
+    if (favoritos) {
+      playlistFavoritosId.value = favoritos.id
+      // Filtrar playlists excluyendo "Favoritos"
+      playlistsUsuario.value = playlists.filter((playlist) => playlist.nombre !== 'Favoritos')
+    } else {
+      playlistFavoritosId.value = ''
+      playlistsUsuario.value = playlists
     }
-    playlistFavoritosId.value = favoritos.id
   } catch (error) {
     console.error('Error al cargar playlists:', error)
   }
@@ -276,6 +284,16 @@ async function alternarFavorito(cancionId) {
     await cargarPlaylists()
   } catch (error) {
     mostrarMensaje(error.message, true)
+  }
+}
+
+async function registrarReproduccion(cancionId) {
+  if (!usuario.value?.id) return
+  try {
+    await songsService.reproducir(cancionId)
+  } catch (error) {
+    // No mostrar error al usuario, solo registrar en consola
+    console.warn('Error al registrar reproducción:', error)
   }
 }
 </script>

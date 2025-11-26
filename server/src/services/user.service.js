@@ -32,14 +32,6 @@ function validateUserPayload(
     }
   }
 
-  if (!isUpdate || fecha_nacimiento !== undefined) {
-    if (!isValidBirthDate(fecha_nacimiento)) {
-      throw new Error(
-        'La fecha de nacimiento es obligatoria y debe ser igual o mayor a al menos 18 años',
-      );
-    }
-  }
-
   // password
   if (!isUpdate || password !== undefined) {
     if (!isNonEmptyString(password)) {

@@ -118,12 +118,18 @@
                     </button>
                   </div>
                   <audio
+                    v-if="cancion.url"
                     class="w-50 mb-3"
                     controls
                     :src="cancion.url"
+                    @play="registrarReproduccion(cancion.id)"
                   >
                     Tu navegador no soporta audio HTML5.
                   </audio>
+                  <div v-else class="alert alert-warning small mb-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Audio no disponible
+                  </div>
                 </div>
               </div>
             </div>
@@ -269,6 +275,16 @@ async function quitarCancion(cancionId) {
     mostrarMensaje('Canción retirada de la playlist.')
   } catch (error) {
     mostrarMensaje(error.message, true)
+  }
+}
+
+async function registrarReproduccion(cancionId) {
+  if (!usuario.value?.id) return
+  try {
+    await songsService.reproducir(cancionId)
+  } catch (error) {
+    // No mostrar error al usuario, solo registrar en consola
+    console.warn('Error al registrar reproducción:', error)
   }
 }
 </script>

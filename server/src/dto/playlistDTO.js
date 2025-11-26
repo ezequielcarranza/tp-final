@@ -11,6 +11,7 @@ export const playlistResponseDTO = (playlist) => {
     id: playlist.id,
     nombre: toTitleCase(playlist.nombre),
     descripcion: playlist.descripcion ? toTitleCase(playlist.descripcion) : null,
+    ownerId: playlist.user_id,
     createdAt: playlist.created_at,
   };
 };

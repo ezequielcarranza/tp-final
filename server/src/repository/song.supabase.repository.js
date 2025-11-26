@@ -39,19 +39,26 @@ export default class SongRepositorySupabase {
   // Actualizar una cancion por ID
   updateOne = async (
     id,
-    { titulo, artista, album, genero, duracion, portada, fecha_lanzamiento },
+    { titulo, artista, album, genero, duracion, portada, fecha_lanzamiento, url },
   ) => {
+    const updateData = {
+      titulo,
+      artista,
+      album,
+      genero,
+      duracion,
+      portada,
+      fecha_lanzamiento,
+    };
+    
+    // Solo agregar url si está definido
+    if (url !== undefined) {
+      updateData.url = url;
+    }
+
     const { data, error } = await this.supabase
       .from('songs')
-      .update({
-        titulo,
-        artista,
-        album,
-        genero,
-        duracion,
-        portada,
-        fecha_lanzamiento,
-      })
+      .update(updateData)
       .eq('id', id)
       .select();
     //.single();
