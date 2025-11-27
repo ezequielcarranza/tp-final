@@ -1,4 +1,3 @@
-//import path from 'path'
 import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
@@ -30,9 +29,6 @@ server.use('/api/auth', authRouter);
 server.use('/api/playlist', playlistRouter);
 server.use('/api/stats', statsRouter);
 server.use('/api/stats', statsExportRouter);
-/* server.use((req, res, next) => {
-  res.status(404).send('No esta disponible este endpoint: ' + req.url);
-}); */
 server.use(notFounderHandler);
 
 export default server;

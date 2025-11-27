@@ -4,9 +4,6 @@ import server from './src/server.js';
 
 const runServer = async () => {
   try {
-    /* if (config.DATABASE == "mongoose") {
-            DatabaseFactory.getConnection()
-        } */
     DatabaseFactory.getConnection();
     const port = config.SERVER_PORT || 3000;
     const host = config.SERVER_HOST || 'localhost';

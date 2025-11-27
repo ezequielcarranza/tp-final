@@ -1,4 +1,4 @@
-import { toCamelCase, toTitleCase } from '../utils/string.utils.js';
+import { toTitleCase } from '../utils/string.utils.js';
 /**
  * Normaliza una canción individual
  */
@@ -15,7 +15,6 @@ export const songResponseDTO = (song) => {
     fechaLanzamiento: song.fecha_lanzamiento,
     portada: song.portada,
     url: song.url || song.preview_url || null, // URL del audio (preview de Spotify o URL personalizada)
-    //created_at: song.created_at,
   };
 };
 

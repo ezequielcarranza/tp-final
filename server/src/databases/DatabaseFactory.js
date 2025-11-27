@@ -1,17 +1,10 @@
 import { config } from '../config/config.js';
-//import MongooseConnection from "./mongo.cnx.js"; aun no implementado
 import SupaBaseConnection from './supabase.cnx.js';
 
 export default class DatabaseFactory {
-  /*  static async connectMongo(cnx) {
-        await cnx.connect()
-    } */
-
   static createConnection(databaseType) {
     switch (databaseType?.toLowerCase()) {
       case 'mongoose':
-        /* const mongo = new MongooseConnection();
-        DatabaseFactory.connectMongo(mongo); */
         throw new Error('Conexion MongoDB no implementada todavía');
 
       case 'supabase':
@@ -23,7 +16,7 @@ export default class DatabaseFactory {
   }
 
   static async getConnection() {
-    const databaseType = config.DATABASE ?? 'mongoose';
+    const databaseType = config.DATABASE ?? 'supabase';
     return DatabaseFactory.createConnection(databaseType);
   }
 }

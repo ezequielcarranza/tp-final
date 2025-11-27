@@ -9,7 +9,6 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, '../../../.env') });
 
 const {
-  //MONGO_URI,
   SUPABASE_URL,
   SUPABASE_API_KEY,
   DATABASE,
@@ -24,7 +23,6 @@ const {
 } = process.env;
 
 export const config = {
-  //MONGO_URI,
   SUPABASE_URL,
   SUPABASE_API_KEY,
   DATABASE,

@@ -1,4 +1,3 @@
-//import bcrypt from 'bcrypt';
 import bcrypt from 'bcryptjs';
 import { RepositoryFactory } from '../repository/repositoryFactory.js';
 import {
