@@ -29,9 +29,9 @@ async function cargarCanciones() {
   state.cargando = true
   try {
     const response = await api.get('/api/song/songs')
-    // El backend devuelve directamente un array en getAll
-    const canciones = response.data || []
-    state.canciones = canciones.map(normalizarCancion)
+    // El backend devuelve { OK, payload, message } - extraer payload
+    const canciones = response.data.payload || response.data || []
+    state.canciones = Array.isArray(canciones) ? canciones.map(normalizarCancion) : []
   } catch (error) {
     // Solo mostrar error si no es 401 (no autenticado)
     if (error.response?.status !== 401) {

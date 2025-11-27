@@ -218,12 +218,18 @@ const playlistFavoritos = computed(() => {
 })
 
 const cancionesFiltradas = computed(() => {
-  const termino = terminoBusqueda.value.toLowerCase()
+  const termino = terminoBusqueda.value.toLowerCase().trim()
   const canciones = songsService.obtenerTodas()
+  
   if (!termino) return canciones
+  
   return canciones.filter((cancion) => {
     const tokens = [cancion.titulo, cancion.artista, cancion.genero, cancion.album]
-    return tokens.some((token) => token?.toLowerCase().includes(termino))
+    return tokens.some((token) => {
+      // Asegurar que token es string antes de aplicar toLowerCase
+      if (!token || typeof token !== 'string') return false
+      return token.toLowerCase().includes(termino)
+    })
   })
 })
 
