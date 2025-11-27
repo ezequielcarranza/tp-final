@@ -60,7 +60,7 @@
         <div class="mt-4 small text-secondary">
           <p class="mb-1 fw-semibold text-white">Credenciales de prueba</p>
           <ul class="list-unstyled small m-0">
-            <li>Administrador: ezequuielcarranza02@gmail.com / Password123</li>
+            <li>Administrador: ezequielcarranza02@gmail.com / Password123</li>
           </ul>
         </div>
       </div>
@@ -78,7 +78,7 @@ const router = useRouter()
 const route = useRoute()
 
 const loginForm = ref({
-  email: 'ezequuielcarranza02@gmail.com',
+  email: 'ezequielcarranza02@gmail.com',
   password: 'Password123',
 })
 
