@@ -44,6 +44,14 @@
                 </td>
                 <td class="text-end">
                   <button
+                    class="btn btn-outline-primary btn-sm me-2"
+                    :disabled="usuario.rol === 'admin'"
+                    @click="abrirModalModificar(usuario)"
+                  >
+                    <i class="bi bi-pencil me-1"></i>
+                    Modificar
+                  </button>
+                  <button
                     class="btn btn-outline-danger btn-sm"
                     :disabled="usuario.rol === 'admin'"
                     @click="eliminarUsuario(usuario)"
@@ -63,6 +71,87 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal para modificar usuario -->
+    <div
+      v-if="mostrarModal"
+      class="modal d-block"
+      style="background-color: rgba(0, 0, 0, 0.5)"
+      tabindex="-1"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-secondary">
+          <div class="modal-header border-secondary">
+            <h5 class="modal-title text-white">Modificar usuario</h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              @click="cerrarModal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="guardarCambios">
+              <div class="mb-3">
+                <label for="nombre" class="form-label text-white">Nombre</label>
+                <input
+                  id="nombre"
+                  v-model="formulario.nombre"
+                  type="text"
+                  class="form-control bg-secondary text-white border-0"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="apellido" class="form-label text-white">Apellido</label>
+                <input
+                  id="apellido"
+                  v-model="formulario.apellido"
+                  type="text"
+                  class="form-control bg-secondary text-white border-0"
+                />
+              </div>
+              <div class="mb-3">
+                <label for="email" class="form-label text-white">Email</label>
+                <input
+                  id="email"
+                  v-model="formulario.email"
+                  type="email"
+                  class="form-control bg-secondary text-white border-0"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="rol" class="form-label text-white">Rol</label>
+                <select
+                  id="rol"
+                  v-model="formulario.rol"
+                  class="form-select bg-secondary text-white border-0"
+                >
+                  <option value="usuario">Usuario</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div class="d-flex gap-2 justify-content-end">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  @click="cerrarModal"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  :disabled="guardando"
+                >
+                  {{ guardando ? 'Guardando...' : 'Guardar cambios' }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -74,6 +163,15 @@ const usuarios = ref([])
 const mensaje = ref('')
 const mensajeEsError = ref(false)
 const cargando = ref(false)
+const mostrarModal = ref(false)
+const guardando = ref(false)
+const usuarioEnEdicion = ref(null)
+const formulario = ref({
+  nombre: '',
+  apellido: '',
+  email: '',
+  rol: 'usuario',
+})
 
 // Cargar usuarios al montar el componente
 onMounted(async () => {
@@ -110,6 +208,51 @@ function notificar(texto, esError = false) {
     mensaje.value = ''
     mensajeEsError.value = false
   }, 2500)
+}
+
+function abrirModalModificar(usuario) {
+  usuarioEnEdicion.value = usuario
+  formulario.value = {
+    nombre: usuario.nombre,
+    apellido: usuario.apellido || '',
+    email: usuario.email,
+    rol: usuario.rol,
+  }
+  mostrarModal.value = true
+}
+
+function cerrarModal() {
+  mostrarModal.value = false
+  usuarioEnEdicion.value = null
+  formulario.value = {
+    nombre: '',
+    apellido: '',
+    email: '',
+    rol: 'usuario',
+  }
+}
+
+async function guardarCambios() {
+  if (!usuarioEnEdicion.value) return
+  
+  guardando.value = true
+  try {
+    await authService.actualizarPerfil(usuarioEnEdicion.value.id, {
+      nombre: formulario.value.nombre,
+      apellido: formulario.value.apellido,
+      email: formulario.value.email,
+      role: formulario.value.rol,
+    })
+    
+    notificar('Usuario actualizado correctamente.')
+    cerrarModal()
+    // Recargar la lista de usuarios
+    await cargarUsuarios()
+  } catch (error) {
+    notificar(error.message || 'Error al actualizar usuario', true)
+  } finally {
+    guardando.value = false
+  }
 }
 
 async function eliminarUsuario(usuario) {
