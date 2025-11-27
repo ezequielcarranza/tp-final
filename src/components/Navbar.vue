@@ -35,6 +35,11 @@
               Playlists
             </RouterLink>
           </li>
+          <li class="nav-item">
+            <RouterLink class="nav-link" :to="{ name: 'estadisticas' }">
+              Estadísticas
+            </RouterLink>
+          </li>
           <template v-if="esAdmin">
             <li class="nav-item">
               <RouterLink class="nav-link" :to="{ name: 'admin-canciones' }">
