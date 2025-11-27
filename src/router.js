@@ -45,6 +45,12 @@ const routes = [
     component: () => import('./views/AdminUsersView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
+  {
+    path: '/estadisticas',
+    name: 'estadisticas',
+    component: () => import('./views/StatsExportView.vue'),
+    meta: { requiresAuth: true },
+  },
   { path: '/:pathMatch(.*)*', redirect: '/inicio' },
 ]
 
